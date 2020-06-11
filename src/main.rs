@@ -76,6 +76,12 @@ impl Tetromino {
             }
         }
     }
+
+    fn get_current_set(&self) -> HashSet<Point> {
+        self.points.clone().into_iter().
+        map(|point| Point(point.0 + self.origin.0, point.1 + self.origin.1)).
+        collect()
+    }
 }
 
 const WELL_SIZE_X: i8 = 10;
@@ -101,10 +107,6 @@ impl Well {
 }
 
 fn render(stdout: &mut termion::raw::RawTerminal<std::io::Stdout>, well: &Well, tet: &Tetromino) {
-    let tet_set: HashSet<_> = tet.points.clone().into_iter().
-        map(|point| Point(point.0 + tet.origin.0, point.1 + tet.origin.1)).
-        collect();
-
     write!(stdout, "{}{}",
            termion::cursor::Goto(1, 1),
            termion::clear::CurrentLine).unwrap();
@@ -114,7 +116,7 @@ fn render(stdout: &mut termion::raw::RawTerminal<std::io::Stdout>, well: &Well, 
             let p = Point(x, y);
             write!(stdout, "{}",    if well.points.contains(&p) {
                                         format!("{}XX{}", color::Fg(color::White), style::Reset)
-                                    } else if tet_set.contains(&p) {
+                                    } else if tet.get_current_set().contains(&p) {
                                         format!("{}XX{}", color::Fg(tet.color.deref()), style::Reset)
                                     } else {
                                         format!("  ")
