@@ -1,9 +1,11 @@
 use std::collections::HashSet;
-
 use std::io::{stdin, stdout, Write};
 use termion::event::Key;
 use termion::input::TermRead;
 use termion::raw::IntoRawMode;
+use std::sync::mpsc;
+use std::thread;
+use std::time::Duration;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 struct Point (i8, i8);
@@ -108,15 +110,28 @@ fn render(stdout: &mut termion::raw::RawTerminal<std::io::Stdout>, well: &Well, 
 }
 
 fn main() {
+    let (tx0, rx) = mpsc::channel();
+    let tx1 = tx0.clone();
+
+    thread::spawn(move || loop {
+        for c in stdin().keys() {
+            tx0.send(c.unwrap()).unwrap();
+        }
+    });
+
+    thread::spawn(move || loop {
+        thread::sleep(Duration::from_millis(500));
+        tx1.send(Key::Down).unwrap();
+    });
+
+
     let mut tet = Tetromino::new(Type::T);
     let mut well = Well::new();
 
-
-    let stdin = stdin();
     let mut stdout = stdout().into_raw_mode().unwrap(); // move out
 
-    for c in stdin.keys() {
-        match c.unwrap() {
+    loop {
+        match rx.recv().unwrap() {
             Key::Up => tet.origin.1 -= 1,
             Key::Down => tet.origin.1 += 1,
             Key::Left => tet.origin.0 -= 1,
@@ -127,6 +142,6 @@ fn main() {
 
         render(&mut stdout, &well, &tet);
         stdout.flush().unwrap();
-
     }
+
 }
