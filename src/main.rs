@@ -3,9 +3,12 @@ use std::io::{stdin, stdout, Write};
 use termion::event::Key;
 use termion::input::TermRead;
 use termion::raw::IntoRawMode;
+use termion::{color, style, cursor};
 use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
+use termion::color::Color;
+use std::ops::Deref;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 struct Point (i8, i8);
@@ -22,7 +25,8 @@ enum Type {
 #[derive(Debug)]
 struct Tetromino {
     points: HashSet<Point>,
-    origin: Point
+    origin: Point,
+    color: Box<dyn Color>
 }
 
 impl Tetromino {
@@ -31,37 +35,44 @@ impl Tetromino {
             Type::I => Tetromino {
                 points: [Point(0, 1), Point(1, 1), Point(2, 1), Point(3, 1)].
                     iter().cloned().collect(),
-                origin: Point(2, 0)
+                origin: Point(2, 0),
+                color: Box::new(color::Cyan)
             },
             Type::J => Tetromino {
                 points: [Point(0, 0), Point(0, 1), Point(1, 1), Point(2, 1)].
                     iter().cloned().collect(),
-                origin: Point(2, 0)
+                origin: Point(2, 0),
+                color: Box::new(color::Blue)
             },
             Type::L => Tetromino {
                 points: [Point(0, 1), Point(1, 1), Point(2, 1), Point(2, 0)].
                     iter().cloned().collect(),
-                origin: Point(2, 0)
+                origin: Point(2, 0),
+                color: Box::new(color::Yellow)
             },
             Type::O => Tetromino {
                 points: [Point(1, 0), Point(1, 1), Point(2, 0), Point(2, 1)].
                     iter().cloned().collect(),
-                origin: Point(2, 0)
+                origin: Point(2, 0),
+                color: Box::new(color::LightYellow)
             },
             Type::S => Tetromino {
                 points: [Point(0, 1), Point(1, 0), Point(1, 1), Point(2, 0)].
                     iter().cloned().collect(),
-                origin: Point(2, 0)
+                origin: Point(2, 0),
+                color: Box::new(color::Green)
             },
             Type::T => Tetromino {
                 points: [Point(1, 0), Point(0, 1), Point(1, 1), Point(2, 1)].
                     iter().cloned().collect(),
-                origin: Point(3, 0)
+                origin: Point(3, 0),
+                color: Box::new(color::Magenta)
             },
             Type::Z => Tetromino {
                 points: [Point(0, 0), Point(1, 0), Point(1, 1), Point(2, 1)].
                     iter().cloned().collect(),
-                origin: Point(2, 0)
+                origin: Point(2, 0),
+                color: Box::new(color::Red)
             }
         }
     }
@@ -94,8 +105,6 @@ fn render(stdout: &mut termion::raw::RawTerminal<std::io::Stdout>, well: &Well, 
         map(|point| Point(point.0 + tet.origin.0, point.1 + tet.origin.1)).
         collect();
 
-    let frame: HashSet<_> = well.points.union(&tet_set).collect();
-
     write!(stdout, "{}{}",
            termion::cursor::Goto(1, 1),
            termion::clear::CurrentLine).unwrap();
@@ -103,7 +112,13 @@ fn render(stdout: &mut termion::raw::RawTerminal<std::io::Stdout>, well: &Well, 
     for y in 0..WELL_SIZE_Y {
         for x in 0..WELL_SIZE_X {
             let p = Point(x, y);
-            write!(stdout, "{}", if frame.contains(&p) {"XX"} else {"  "}).unwrap();
+            write!(stdout, "{}",    if well.points.contains(&p) {
+                                        format!("{}XX{}", color::Fg(color::White), style::Reset)
+                                    } else if tet_set.contains(&p) {
+                                        format!("{}XX{}", color::Fg(tet.color.deref()), style::Reset)
+                                    } else {
+                                        format!("  ")
+                                    }).unwrap();
         }
         write!(stdout, "\n\r").unwrap();
     }
@@ -125,7 +140,7 @@ fn main() {
     });
 
 
-    let mut tet = Tetromino::new(Type::T);
+    let mut tet = Tetromino::new(Type::S);
     let mut well = Well::new();
 
     let mut stdout = stdout().into_raw_mode().unwrap(); // move out
