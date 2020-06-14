@@ -31,7 +31,7 @@ enum TetrominoAngle {
     Degree270
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 enum TetrominoRotation {
     Clockwise,
     Counterclockwise,
@@ -233,8 +233,10 @@ impl Tetromino {
         }
     }
 
-    fn rotate(&mut self, r: TetrominoRotation) {
-        self.angle = self.get_angle_after_rotation(r);
+    fn rotate(&mut self, rotation: TetrominoRotation, well: &Well) {
+        if self.is_move_allowed(0, 0, Some(rotation), well) {
+            self.angle = self.get_angle_after_rotation(rotation);
+        }
     }
 
     fn is_move_allowed(&self, dx: i8, dy: i8, rotation: Option<TetrominoRotation>, well: &Well) -> bool {
@@ -262,6 +264,16 @@ impl Tetromino {
             self.origin.0 += 1;
         }
     }
+
+    fn move_down(&mut self, well: &mut Well) -> bool {
+        if self.is_move_allowed(0, 1, None, well) {
+            self.origin.1 += 1;
+            false
+        } else {
+            well.consume(self);
+            true
+        }
+    }
 }
 
 const WELL_SIZE_X: i8 = 10;
@@ -283,6 +295,10 @@ impl Well {
             }
         }
         well
+    }
+
+    fn consume(&mut self, tetromino: &Tetromino) {
+        self.points = self.points.union(&tetromino.get_current_set()).cloned().collect();
     }
 }
 
@@ -341,11 +357,11 @@ fn main() {
 
     loop {
         match rx.recv().unwrap() {
-            TetrisEvent::RotateCCW  => tet.rotate(TetrominoRotation::Counterclockwise),
-            TetrisEvent::RotateCW   => tet.rotate(TetrominoRotation::Clockwise),
+            TetrisEvent::RotateCCW  => tet.rotate(TetrominoRotation::Counterclockwise, &well),
+            TetrisEvent::RotateCW   => tet.rotate(TetrominoRotation::Clockwise, &well),
             TetrisEvent::MoveLeft   => tet.move_left(&well),
             TetrisEvent::MoveRight  => tet.move_right(&well),
-            TetrisEvent::MoveDown   => tet.origin.1 += 1,
+            TetrisEvent::MoveDown   => if tet.move_down(&mut well) {tet = Tetromino::random()},
             TetrisEvent::Quit       => break,
             TetrisEvent::Skip       => tet = Tetromino::random(),
             _ => (), // implement drop
