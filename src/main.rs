@@ -22,12 +22,30 @@ enum TetrominoType {
     T,
     Z
 }
-#[derive(Debug)]
+
+#[derive(Debug, Clone, Copy)]
 enum TetrominoAngle {
     Degree0,
     Degree90,
     Degree180,
     Degree270
+}
+
+#[derive(Debug, PartialEq)]
+enum TetrominoRotation {
+    Clockwise,
+    Counterclockwise,
+}
+
+#[derive(Debug, Clone)]
+enum TetrominoColor {
+    Cyan,
+    Blue,
+    Yellow,
+    LightYellow,
+    Green,
+    Magenta,
+    Red
 }
 
 #[derive(Debug)]
@@ -42,14 +60,14 @@ enum TetrisEvent {
     Skip
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct Tetromino {
     points_0: HashSet<Point>,
     points_90: HashSet<Point>,
     points_180: HashSet<Point>,
     points_270: HashSet<Point>,
     origin: Point,
-    color: Box<dyn Color>,
+    color: TetrominoColor,
     angle: TetrominoAngle
 }
 
@@ -79,7 +97,7 @@ impl Tetromino {
                 points_270: [Point(1, 0), Point(1, 1), Point(1, 2), Point(1, 3)].
                     iter().cloned().collect(),
                 origin: Point(2, 0),
-                color: Box::new(color::Cyan),
+                color: TetrominoColor::Cyan,
                 angle: TetrominoAngle::Degree0,
             },
             TetrominoType::J => Tetromino {
@@ -92,7 +110,7 @@ impl Tetromino {
                 points_270: [Point(0, 2), Point(1, 0), Point(1, 1), Point(1, 2)].
                     iter().cloned().collect(),
                 origin: Point(2, 0),
-                color: Box::new(color::Blue),
+                color: TetrominoColor::Blue,
                 angle: TetrominoAngle::Degree0,
             },
             TetrominoType::L => Tetromino {
@@ -105,7 +123,7 @@ impl Tetromino {
                 points_270: [Point(0, 0), Point(1, 0), Point(1, 1), Point(1, 2)].
                     iter().cloned().collect(),
                 origin: Point(2, 0),
-                color: Box::new(color::Yellow),
+                color: TetrominoColor::Yellow,
                 angle: TetrominoAngle::Degree0,
             },
             TetrominoType::O => Tetromino {
@@ -118,7 +136,7 @@ impl Tetromino {
                 points_270: [Point(1, 0), Point(1, 1), Point(2, 0), Point(2, 1)].
                     iter().cloned().collect(),
                 origin: Point(2, 0),
-                color: Box::new(color::LightYellow),
+                color: TetrominoColor::LightYellow,
                 angle: TetrominoAngle::Degree0,
 
             },
@@ -132,7 +150,7 @@ impl Tetromino {
                 points_270: [Point(0, 0), Point(0, 1), Point(1, 1), Point(1, 2)].
                     iter().cloned().collect(),
                 origin: Point(2, 0),
-                color: Box::new(color::Green),
+                color: TetrominoColor::Green,
                 angle: TetrominoAngle::Degree0,
 
             },
@@ -146,7 +164,7 @@ impl Tetromino {
                 points_270: [Point(0, 1), Point(1, 0), Point(1, 1), Point(1, 2)].
                     iter().cloned().collect(),
                 origin: Point(3, 0),
-                color: Box::new(color::Magenta),
+                color: TetrominoColor::Magenta,
                 angle: TetrominoAngle::Degree0,
             },
             TetrominoType::Z => Tetromino {
@@ -159,7 +177,7 @@ impl Tetromino {
                 points_270: [Point(0, 1), Point(0, 2), Point(1, 0), Point(1, 1)].
                     iter().cloned().collect(),
                 origin: Point(2, 0),
-                color: Box::new(color::Red),
+                color: TetrominoColor::Red,
                 angle: TetrominoAngle::Degree0,
             }
         }
@@ -178,22 +196,71 @@ impl Tetromino {
         collect()
     }
 
-    fn rotate_cw(&mut self) {
-        self.angle = match self.angle {
-            TetrominoAngle::Degree0 => TetrominoAngle::Degree90,
-            TetrominoAngle::Degree90 => TetrominoAngle::Degree180,
-            TetrominoAngle::Degree180 => TetrominoAngle::Degree270,
-            TetrominoAngle::Degree270 => TetrominoAngle::Degree0,
-        };
+    fn get_angle_after_rotation(&self, r: TetrominoRotation) -> TetrominoAngle {
+        match self.angle {
+            TetrominoAngle::Degree0 => if r == TetrominoRotation::Clockwise {
+                TetrominoAngle::Degree90
+            } else {
+                TetrominoAngle::Degree270
+            },
+            TetrominoAngle::Degree90 => if r == TetrominoRotation::Clockwise {
+                TetrominoAngle::Degree180
+            } else {
+                TetrominoAngle::Degree0
+            },
+            TetrominoAngle::Degree180 => if r == TetrominoRotation::Clockwise {
+                TetrominoAngle::Degree270
+            } else {
+                TetrominoAngle::Degree90
+            },
+            TetrominoAngle::Degree270 => if r == TetrominoRotation::Clockwise {
+                TetrominoAngle::Degree0
+            } else {
+                TetrominoAngle::Degree180
+            }
+        }
     }
 
-    fn rotate_ccw(&mut self) {
-        self.angle = match self.angle {
-            TetrominoAngle::Degree0 => TetrominoAngle::Degree270,
-            TetrominoAngle::Degree90 => TetrominoAngle::Degree0,
-            TetrominoAngle::Degree180 => TetrominoAngle::Degree90,
-            TetrominoAngle::Degree270 => TetrominoAngle::Degree180,
+    fn get_color(&self) -> Box<dyn Color> {
+        match self.color {
+            TetrominoColor::Cyan => Box::new(color::Cyan),
+            TetrominoColor::Blue => Box::new(color::Blue),
+            TetrominoColor::Yellow => Box::new(color::Yellow),
+            TetrominoColor::LightYellow => Box::new(color::LightYellow),
+            TetrominoColor::Green => Box::new(color::Green),
+            TetrominoColor::Magenta => Box::new(color::Magenta),
+            TetrominoColor::Red => Box::new(color::Red),
+        }
+    }
+
+    fn rotate(&mut self, r: TetrominoRotation) {
+        self.angle = self.get_angle_after_rotation(r);
+    }
+
+    fn is_move_allowed(&self, dx: i8, dy: i8, rotation: Option<TetrominoRotation>, well: &Well) -> bool {
+        let future = Tetromino {
+            origin: Point(self.origin.0 + dx, self.origin.1 + dy),
+            angle: match rotation {
+                Some(rotation) => self.get_angle_after_rotation(rotation),
+                None => self.angle
+            },
+            .. self.clone()
         };
+
+        well.points.intersection(&future.get_current_set()).cloned().
+            collect::<HashSet<Point>>().is_empty()
+    }
+
+    fn move_left(&mut self, well: &Well) {
+        if self.is_move_allowed(-1, 0, None, well) {
+            self.origin.0 -= 1;
+        }
+    }
+
+    fn move_right(&mut self, well: &Well) {
+        if self.is_move_allowed(1, 0, None, well) {
+            self.origin.0 += 1;
+        }
     }
 }
 
@@ -230,14 +297,14 @@ fn render(stdout: &mut termion::raw::RawTerminal<std::io::Stdout>, well: &Well, 
             write!(stdout, "{}",    if well.points.contains(&p) {
                                         format!("{}XX{}", color::Fg(color::White), style::Reset)
                                     } else if tet.get_current_set().contains(&p) {
-                                        format!("{}XX{}", color::Fg(tet.color.deref()), style::Reset)
+                                        format!("{}XX{}", color::Fg(tet.get_color().deref()), style::Reset)
                                     } else {
                                         format!("  ")
                                     }).unwrap();
         }
         write!(stdout, "\n\r").unwrap();
     }
-    write!(stdout, "{}", format!("{:?}", tet.angle)).unwrap();
+    // write!(stdout, "{}", format!("{:?}", tet.angle)).unwrap();
 }
 
 fn main() {
@@ -274,10 +341,10 @@ fn main() {
 
     loop {
         match rx.recv().unwrap() {
-            TetrisEvent::RotateCCW  => tet.rotate_ccw(),
-            TetrisEvent::RotateCW   => tet.rotate_cw(),
-            TetrisEvent::MoveLeft   => tet.origin.0 -= 1,
-            TetrisEvent::MoveRight  => tet.origin.0 += 1,
+            TetrisEvent::RotateCCW  => tet.rotate(TetrominoRotation::Counterclockwise),
+            TetrisEvent::RotateCW   => tet.rotate(TetrominoRotation::Clockwise),
+            TetrisEvent::MoveLeft   => tet.move_left(&well),
+            TetrisEvent::MoveRight  => tet.move_right(&well),
             TetrisEvent::MoveDown   => tet.origin.1 += 1,
             TetrisEvent::Quit       => break,
             TetrisEvent::Skip       => tet = Tetromino::random(),
