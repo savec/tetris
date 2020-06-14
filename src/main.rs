@@ -9,6 +9,7 @@ use std::thread;
 use std::time::Duration;
 use termion::color::Color;
 use std::ops::Deref;
+use rand::Rng;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 struct Point (i8, i8);
@@ -37,7 +38,8 @@ enum TetrisEvent {
     RotateCW,
     RotateCCW,
     Drop,
-    Quit
+    Quit,
+    Skip
 }
 
 #[derive(Debug)]
@@ -52,12 +54,25 @@ struct Tetromino {
 }
 
 impl Tetromino {
+    fn random() -> Self {
+        match rand::thread_rng().gen_range(1, 8) {
+            1 => Tetromino::new(TetrominoType::I),
+            2 => Tetromino::new(TetrominoType::L),
+            3 => Tetromino::new(TetrominoType::J),
+            4 => Tetromino::new(TetrominoType::O),
+            5 => Tetromino::new(TetrominoType::S),
+            6 => Tetromino::new(TetrominoType::T),
+            7 => Tetromino::new(TetrominoType::Z),
+            _ => panic!()
+        }
+    }
+
     fn new(t: TetrominoType) -> Self {
         match t {
             TetrominoType::I => Tetromino {
                 points_0: [Point(0, 1), Point(1, 1), Point(2, 1), Point(3, 1)].
                     iter().cloned().collect(),
-                points_90: [Point(2, 0), Point(2, 1), Point(2, 2), Point(3, 2)].
+                points_90: [Point(2, 0), Point(2, 1), Point(2, 2), Point(2, 3)].
                     iter().cloned().collect(),
                 points_180: [Point(0, 2), Point(1, 2), Point(2, 2), Point(3, 2)].
                     iter().cloned().collect(),
@@ -70,7 +85,7 @@ impl Tetromino {
             TetrominoType::J => Tetromino {
                 points_0: [Point(0, 0), Point(0, 1), Point(1, 1), Point(2, 1)].
                     iter().cloned().collect(),
-                points_90: [Point(1, 0), Point(2, 0), Point(1, 1), Point(2, 1)].
+                points_90: [Point(1, 0), Point(1, 1), Point(1, 2), Point(2, 0)].
                     iter().cloned().collect(),
                 points_180: [Point(0, 1), Point(1, 1), Point(2, 1), Point(2, 2)].
                     iter().cloned().collect(),
@@ -96,11 +111,11 @@ impl Tetromino {
             TetrominoType::O => Tetromino {
                 points_0: [Point(1, 0), Point(1, 1), Point(2, 0), Point(2, 1)].
                     iter().cloned().collect(),
-                points_90: [Point(1, 0), Point(2, 1), Point(1, 0), Point(2, 1)].
+                points_90: [Point(1, 0), Point(1, 1), Point(2, 0), Point(2, 1)].
                     iter().cloned().collect(),
-                points_180: [Point(1, 0), Point(2, 1), Point(1, 0), Point(2, 1)].
+                points_180: [Point(1, 0), Point(1, 1), Point(2, 0), Point(2, 1)].
                     iter().cloned().collect(),
-                points_270: [Point(1, 0), Point(2, 1), Point(1, 0), Point(2, 1)].
+                points_270: [Point(1, 0), Point(1, 1), Point(2, 0), Point(2, 1)].
                     iter().cloned().collect(),
                 origin: Point(2, 0),
                 color: Box::new(color::LightYellow),
@@ -222,6 +237,7 @@ fn render(stdout: &mut termion::raw::RawTerminal<std::io::Stdout>, well: &Well, 
         }
         write!(stdout, "\n\r").unwrap();
     }
+    write!(stdout, "{}", format!("{:?}", tet.angle)).unwrap();
 }
 
 fn main() {
@@ -236,6 +252,7 @@ fn main() {
                 Key::Left       => Some(TetrisEvent::MoveLeft),
                 Key::Right      => Some(TetrisEvent::MoveRight),
                 Key::Ctrl('q')  => Some(TetrisEvent::Quit),
+                Key::Backspace  => Some(TetrisEvent::Skip),
                 _ => None,
             };
             if let Some(event) = event {
@@ -250,7 +267,7 @@ fn main() {
     });
 
 
-    let mut tet = Tetromino::new(TetrominoType::S);
+    let mut tet = Tetromino::random();
     let mut well = Well::new();
 
     let mut stdout = stdout().into_raw_mode().unwrap(); // move out
@@ -263,6 +280,7 @@ fn main() {
             TetrisEvent::MoveRight  => tet.origin.0 += 1,
             TetrisEvent::MoveDown   => tet.origin.1 += 1,
             TetrisEvent::Quit       => break,
+            TetrisEvent::Skip       => tet = Tetromino::random(),
             _ => (), // implement drop
         }
 
