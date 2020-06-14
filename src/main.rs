@@ -3,13 +3,14 @@ use std::io::{stdin, stdout, Write};
 use termion::event::Key;
 use termion::input::TermRead;
 use termion::raw::IntoRawMode;
-use termion::{color, style, cursor};
+use termion::{color, style};
 use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
 use termion::color::Color;
 use std::ops::Deref;
 use rand::Rng;
+use std::convert::TryInto;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 struct Point (i8, i8);
@@ -299,6 +300,36 @@ impl Well {
 
     fn consume(&mut self, tetromino: &Tetromino) {
         self.points = self.points.union(&tetromino.get_current_set()).cloned().collect();
+
+        for y in 0..WELL_SIZE_Y-1 {
+            let row: HashSet<Point> = self.points.iter()
+                .filter(|&p| p.0 > 0 && p.0 < WELL_SIZE_X - 1 && p.1 == y)
+                .cloned()
+                .collect();
+
+            if row.len() == (WELL_SIZE_X - 2).try_into().unwrap() {
+                self.points = self.points
+                    .difference(&row)
+                    .cloned()
+                    .collect();
+
+                let upper: HashSet<Point> = self.points.iter()
+                    .filter(|&p| p.0 > 0 && p.0 < WELL_SIZE_X - 1 && p.1 < y)
+                    .cloned()
+                    .collect();
+
+                self.points = self.points
+                    .difference(&upper)
+                    .cloned()
+                    .collect();
+
+                let moved_upper = upper.iter()
+                    .map(|p| if p.1 < y {Point(p.0, p.1 + 1)} else {Point(p.0, p.1)})
+                    .collect::<HashSet<Point>>();
+
+                self.points = self.points.union(&moved_upper).cloned().collect();
+            }
+        }
     }
 }
 
@@ -336,6 +367,7 @@ fn main() {
                 Key::Right      => Some(TetrisEvent::MoveRight),
                 Key::Ctrl('q')  => Some(TetrisEvent::Quit),
                 Key::Backspace  => Some(TetrisEvent::Skip),
+                Key::Char(' ')  => Some(TetrisEvent::Drop),
                 _ => None,
             };
             if let Some(event) = event {
@@ -364,7 +396,7 @@ fn main() {
             TetrisEvent::MoveDown   => if tet.move_down(&mut well) {tet = Tetromino::random()},
             TetrisEvent::Quit       => break,
             TetrisEvent::Skip       => tet = Tetromino::random(),
-            _ => (), // implement drop
+            TetrisEvent::Drop       => loop {if tet.move_down(&mut well) {tet = Tetromino::random(); break;}},
         }
 
         render(&mut stdout, &well, &tet);
